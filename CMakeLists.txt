@@ -6,7 +6,7 @@ include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 # set(PICO_BOARD pico_w)
 set(PICO_BOARD pico)
 
-project(soil_humidity_led C CXX ASM)
+project(soil_humidity C CXX ASM)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -16,6 +16,7 @@ pico_sdk_init()
 
 add_executable(${CMAKE_PROJECT_NAME}
     main.c
+    bh1750.c
 )
 
 pico_enable_stdio_usb(${CMAKE_PROJECT_NAME} 1)
