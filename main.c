@@ -10,6 +10,7 @@
 #include "pico/stdlib.h"
 
 #include "bh1750.h"
+#include "dht/dhtlib.h"
 
 #include "rust/bindings.h"
 
@@ -92,5 +93,6 @@ int main() {
     while (true) {
         uint16_t lux = bh1750_read_lux();
         sleep_ms(500);
+        DhtData *data = dht_init_sequence();
     }
 }

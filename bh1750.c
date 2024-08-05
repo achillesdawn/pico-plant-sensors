@@ -17,6 +17,7 @@ const uint8_t ONE_TIME_HIGH = 0x20;
 const uint8_t ONE_TIME_LOW = 0x23;
 
 const uint16_t BH1750_addr = 0x23;
+
 uint8_t buffer[2];
 
 void bh1750_reset() {
@@ -31,7 +32,7 @@ uint16_t bh1750_read_lux() {
     sleep_ms(200);
 
     i2c_read_blocking(i2c0, BH1750_addr, buffer, 2, false);
-    
+
     lux = buffer[0] << 8 | buffer[1];
     printf("lux: %d\n", lux);
 
