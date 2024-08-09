@@ -16,8 +16,9 @@ pico_sdk_init()
 
 add_executable(${CMAKE_PROJECT_NAME}
     main.c
-    bh1750.c
+    bh1750/bh1750.c
     dht/dhtlib.c
+    soil_sensor/soil_sensor.c
 )
 
 pico_enable_stdio_usb(${CMAKE_PROJECT_NAME} 1)

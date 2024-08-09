@@ -34,7 +34,5 @@ uint16_t bh1750_read_lux() {
     i2c_read_blocking(i2c0, BH1750_addr, buffer, 2, false);
 
     lux = buffer[0] << 8 | buffer[1];
-    printf("lux: %d\n", lux);
-
     return lux;
 }

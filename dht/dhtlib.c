@@ -1,12 +1,13 @@
-#include "dhtlib.h"
-
-#include <stdlib.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "pico/stdlib.h"
 
-#define DHT_PIN 18
+#include "dhtlib.h"
+
+uint8_t _DHT_PIN = 0;
 
 volatile bool ready = false;
 
@@ -38,9 +39,9 @@ DhtData dht11_convert(uint8_t arr[]) {
     return data;
 }
 
-DhtData* dht22_convert(uint8_t arr[]) {
+DhtData *dht22_convert(uint8_t arr[]) {
 
-    DhtData* dht_data = (DhtData*)malloc(sizeof(DhtData));
+    DhtData *dht_data = (DhtData *)malloc(sizeof(DhtData));
 
     dht_data->humidity = (arr[0] << 8) + arr[1];
     dht_data->humidity /= 10;
@@ -51,14 +52,14 @@ DhtData* dht22_convert(uint8_t arr[]) {
 }
 
 /// @brief waits for a value read at the gpio pin within a time limit
-/// @param dht pin to read from 
-/// @param wait_value 
+/// @param dht pin to read from
+/// @param wait_value
 /// @return returns true if value was read within time limit, else returns false
 bool wait_for_value(bool wait_value) {
     bool value;
 
     for (uint8_t i = 0; i < 30; i++) {
-        value = gpio_get(DHT_PIN);
+        value = gpio_get(_DHT_PIN);
 
         if (value == wait_value) {
             return true;
@@ -70,56 +71,69 @@ bool wait_for_value(bool wait_value) {
 
 void gpio_callback(uint gpio, uint32_t event_mask) {
 
-    if (gpio == 18) {
+    if (gpio == _DHT_PIN) {
         ready = true;
     }
 }
 
-void start_sequence() {
-    gpio_put(DHT_PIN, false);
+bool start_sequence() {
+
+    gpio_put(_DHT_PIN, false);
     sleep_ms(19);
 
-    gpio_set_dir(DHT_PIN, GPIO_IN);
-    gpio_pull_up(DHT_PIN);
+    gpio_set_dir(_DHT_PIN, GPIO_IN);
+    gpio_pull_up(_DHT_PIN);
     sleep_us(20);
 
     if (!wait_for_value(0)) {
-        printf("Initiation failed");
-        return;
+        puts("Initiation failed, waiting for low");
+        return false;
     }
 
     if (!wait_for_value(1)) {
-        printf("initialiaziation failed");
-        return;
+        puts("initialiaziation failed, waiting for high");
+        return false;
     }
+
+    return true;
 }
 
 void set_irq(bool enable) {
     if (enable) {
-        gpio_set_irq_enabled(DHT_PIN, GPIO_IRQ_EDGE_RISE, true);
-        irq_set_enabled(IO_IRQ_BANK0, true);
-        gpio_set_irq_callback(gpio_callback);
-    }
-    else {
-        gpio_set_irq_enabled(DHT_PIN, GPIO_IRQ_EDGE_RISE, false);
-        irq_set_enabled(IO_IRQ_BANK0, false);
+        gpio_set_irq_enabled_with_callback(
+            _DHT_PIN, GPIO_IRQ_EDGE_RISE, true, gpio_callback
+        );
+    } else {
+        gpio_set_irq_enabled_with_callback(
+            _DHT_PIN, GPIO_IRQ_EDGE_RISE, false, gpio_callback
+        );
     }
 }
 
 void end_sequence() {
-    gpio_set_dir(DHT_PIN, GPIO_OUT);
-    gpio_put(DHT_PIN, true);
+    gpio_set_dir(_DHT_PIN, GPIO_OUT);
+    gpio_put(_DHT_PIN, true);
 }
 
-DhtData* dht_init_sequence() {
+DhtData *dht_init_sequence(uint8_t dht_pin) {
 
-    printf("initializing dht sequence\n");
+    _DHT_PIN = dht_pin;
 
-    start_sequence();
+    printf("initializing dht sequence on DHT_PIN %d\n", _DHT_PIN);
+
+    bool value = gpio_get(_DHT_PIN);
+    if (value) {
+        puts("dht online");
+    }
+
+    bool sequece_started = start_sequence();
+    if (!sequece_started) {
+        return NULL;
+    }
 
     set_irq(true);
 
-    uint8_t data[5] = { 0, 0, 0, 0 ,0 };
+    uint8_t data[5] = {0, 0, 0, 0, 0};
     uint8_t bits_read = 0;
     bool signal = true;
     ready = false;
@@ -127,13 +141,12 @@ DhtData* dht_init_sequence() {
     while (bits_read < 40) {
         if (ready) {
             sleep_us(30);
-            signal = gpio_get(DHT_PIN);
+            signal = gpio_get(_DHT_PIN);
 
             data[bits_read / 8] |= signal << (7 - (bits_read % 8));
             bits_read += 1;
             ready = false;
-        }
-        else {
+        } else {
             sleep_us(3);
         }
     }
@@ -141,15 +154,15 @@ DhtData* dht_init_sequence() {
     set_irq(false);
     end_sequence();
 
+    // printf("Validating\n");
     if (validate(data)) {
-        print_array(data, 5);
- 
-        DhtData* dht_data = dht22_convert(data);
+        // print_array(data, 5);
+
+        DhtData *dht_data = dht22_convert(data);
         print_data(*dht_data);
 
         return dht_data;
-    }
-    else {
+    } else {
         printf("Validation Failed\n");
         print_array(data, 5);
         return NULL;
